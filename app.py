@@ -6,7 +6,7 @@ from matplotlib.patches import Rectangle
 # Set page config
 st.set_page_config(
     page_title="IFS Fractal Visualizer",
-    page_icon="🌀",
+    # page_icon="🌀",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -103,7 +103,7 @@ class MatrixIFS:
 
 
 # Title
-st.markdown('<div class="main-title">🌀 IFS Fractal Visualizer</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-title"> IFS Fractal Visualizer</div>', unsafe_allow_html=True)
 st.write("Explore custom fractals by adjusting transformation parameters. Each point is colored by the transformation that created it.")
 
 # Sidebar for controls
@@ -258,12 +258,10 @@ except Exception as e:
 # Information section
 st.markdown("---")
 st.markdown("""
-### How it works
+### Info:
 
 Each **transformation** is defined by an affine matrix operation:
 $$\\begin{pmatrix} x' \\\\ y' \\end{pmatrix} = \\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix} \\begin{pmatrix} x \\\\ y \\end{pmatrix} + \\begin{pmatrix} e \\\\ f \\end{pmatrix}$$
-
-The **chaos game algorithm** randomly selects a transformation each iteration, applies it to the current point, and records which transformation was used (shown by color).
 
 The **Hausdorff dimension** is estimated as:
 $$D = \\frac{\\ln(n)}{\\ln(1/r)}$$
@@ -275,5 +273,4 @@ where *n* = number of transformations and *r* = average contraction ratio.
 - Creates the classic Sierpinski triangle fractal
 - Dimension ≈ 1.585
 
-Try adjusting the parameters to discover new fractals!
 """)
