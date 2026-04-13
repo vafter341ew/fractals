@@ -267,10 +267,4 @@ The **Hausdorff dimension** is estimated as:
 $$D = \\frac{\\ln(n)}{\\ln(1/r)}$$
 where *n* = number of transformations and *r* = average contraction ratio.
 
-### Presets
-
-**Sierpinski Triangle** (default): 3 transformations with 0.5 scaling
-- Creates the classic Sierpinski triangle fractal
-- Dimension ≈ 1.585
-
 """)
