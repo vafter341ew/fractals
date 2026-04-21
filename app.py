@@ -188,25 +188,36 @@ for i in range(n_transforms):
     matrices.append(matrix)
     translations.append(translation)
 
-def generate_gasket_points(matrices, translations, depth):
-    """Recursively generate gasket points using IFS transformations"""
-    all_points = []
+def generate_gasket_triangles(matrices, translations, depth):
+    """Recursively generate triangles for gasket visualization using IFS"""
+    from matplotlib.patches import Polygon
     
-    def recurse(point, current_depth):
+    triangles = []
+    
+    # Define initial triangle (Sierpinski standard orientation)
+    # Vertices at (0,0), (1,0), (0.5, sqrt(3)/2)
+    initial_vertices = np.array([
+        [0.0, 0.0],
+        [1.0, 0.0],
+        [0.5, np.sqrt(3)/2]
+    ])
+    
+    def recurse_triangles(vertices, current_depth):
         if current_depth == 0:
             return
-        all_points.append(point.copy())
         
-        # Apply each transformation
+        # Add current triangle
+        triangles.append(Polygon(vertices, closed=True, 
+                               edgecolor='black', facecolor='black', 
+                               linewidth=0, alpha=0.9))
+        
+        # Apply each transformation to generate smaller triangles
         for matrix, translation in zip(matrices, translations):
-            new_point = matrix @ point + translation
-            recurse(new_point, current_depth - 1)
+            new_vertices = np.array([matrix @ v + translation for v in vertices])
+            recurse_triangles(new_vertices, current_depth - 1)
     
-    # Start from origin
-    start_point = np.array([0.0, 0.0])
-    recurse(start_point, depth)
-    
-    return np.array(all_points) if all_points else np.array([[0, 0]])
+    recurse_triangles(initial_vertices, depth)
+    return triangles
 
 # Compute fractal
 try:
@@ -275,20 +286,26 @@ try:
             title = "Error"
             stats = {}
     
-    else:  # Gasket mode - recursive algorithm
-        # Generate gasket using recursive IFS transformations
-        gasket_points = generate_gasket_points(matrices, translations, recursion_depth)
-        
-        x_vals = gasket_points[:, 0]
-        y_vals = gasket_points[:, 1]
+    else:  # Gasket mode - recursive algorithm with filled triangles
+        # Generate gasket triangles using recursive IFS transformations
+        triangles = generate_gasket_triangles(matrices, translations, recursion_depth)
         
         # Create visualization
         fig, ax = plt.subplots(figsize=(10, 10), dpi=100)
         
-        # Calculate bounds
-        if len(x_vals) > 0:
-            x_min, x_max = np.min(x_vals), np.max(x_vals)
-            y_min, y_max = np.min(y_vals), np.max(y_vals)
+        # Add all triangles to the plot
+        for triangle in triangles:
+            ax.add_patch(triangle)
+        
+        # Calculate bounds from all triangle vertices
+        all_vertices = []
+        for triangle in triangles:
+            all_vertices.extend(triangle.get_xy())
+        
+        if len(all_vertices) > 0:
+            all_vertices = np.array(all_vertices)
+            x_min, x_max = np.min(all_vertices[:, 0]), np.max(all_vertices[:, 0])
+            y_min, y_max = np.min(all_vertices[:, 1]), np.max(all_vertices[:, 1])
             
             x_range = x_max - x_min if x_max != x_min else 1.0
             y_range = y_max - y_min if y_max != y_min else 1.0
@@ -299,11 +316,8 @@ try:
             y_min -= y_range * padding
             y_max += y_range * padding
         
-        # Plot gasket points with small black dots
-        ax.scatter(x_vals, y_vals, s=1, c='black', alpha=0.8)
-        
         # Title
-        title = f'Gasket - Recursive Depth: {recursion_depth}, Points: {len(gasket_points)}'
+        title = f'Gasket - Recursive Depth: {recursion_depth}, Triangles: {len(triangles)}'
         
         # Estimate dimension for gasket
         if n_transforms > 0:
@@ -313,7 +327,7 @@ try:
         else:
             dimension = None
         
-        stats = {'gasket': len(gasket_points)}
+        stats = {'gasket': len(triangles)}
     
     ax.set_title(title, fontsize=12, fontweight='bold')
     ax.set_aspect('equal')
