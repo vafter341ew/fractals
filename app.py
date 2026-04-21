@@ -108,6 +108,14 @@ st.write("Explore custom fractals by adjusting transformation parameters. Each p
 # Sidebar for controls
 st.sidebar.markdown('<div class="section-header">Fractal Parameters</div>', unsafe_allow_html=True)
 
+# Visualization mode selector
+visualization_mode = st.sidebar.radio(
+    "Visualization Mode",
+    options=['Scatter (Triangle)', 'Density (Gasket)'],
+    index=0,
+    help="Scatter: Point-based chaos game | Density: Filled heat map"
+)
+
 # Number of transformations
 n_transforms = st.sidebar.slider(
     "Number of Transformations",
@@ -208,20 +216,38 @@ try:
                   '#00008B', '#008000', '#4B0082', '#F0E68C', '#00FA9A', '#90EE90',
                   '#00FFFF', '#191970', '#FFA500', '#FFB6C1', '#FFC0CB', '#FF00FF']
         
-        # Plot points colored by transformation index
-        point_count = 0
-        for t_idx in range(n_transforms):
-            mask = ifs.last_indices == t_idx
-            if np.any(mask):
-                valid_mask = ~np.isnan(x_vals[mask]) & ~np.isnan(y_vals[mask])
-                if np.any(valid_mask):
-                    ax.scatter(x_vals[mask][valid_mask], y_vals[mask][valid_mask], 
-                              s=2, c=colors[t_idx % len(colors)], alpha=0.7, 
-                              label=f'T{t_idx+1}')
-                    point_count += np.sum(valid_mask)
+        if visualization_mode == 'Scatter (Triangle)':
+            # Plot points colored by transformation index (Scatter mode)
+            point_count = 0
+            for t_idx in range(n_transforms):
+                mask = ifs.last_indices == t_idx
+                if np.any(mask):
+                    valid_mask = ~np.isnan(x_vals[mask]) & ~np.isnan(y_vals[mask])
+                    if np.any(valid_mask):
+                        ax.scatter(x_vals[mask][valid_mask], y_vals[mask][valid_mask], 
+                                  s=2, c=colors[t_idx % len(colors)], alpha=0.7, 
+                                  label=f'T{t_idx+1}')
+                        point_count += np.sum(valid_mask)
+            if point_count > 0:
+                ax.legend(loc='upper right', fontsize=8)
+        else:
+            # Create 2D histogram for density visualization (Gasket mode)
+            valid_mask = ~np.isnan(x_vals) & ~np.isnan(y_vals)
+            if np.any(valid_mask):
+                x_valid = x_vals[valid_mask]
+                y_valid = y_vals[valid_mask]
+                
+                # Create bins for histogram
+                bins = int(np.sqrt(num_points / 10))
+                bins = max(20, min(bins, 100))  # Constrain bin count
+                
+                # Plot 2D histogram with heatmap
+                h = ax.hist2d(x_valid, y_valid, bins=bins, cmap='hot')
+                plt.colorbar(h[3], ax=ax, label='Point Density')
         
         # Title
-        title = f'Custom Fractal (n={n_transforms}, {num_points} points)'
+        mode_label = 'Scatter' if visualization_mode == 'Scatter (Triangle)' else 'Density'
+        title = f'{mode_label} - Custom Fractal (n={n_transforms}, {num_points} points)'
         if dimension is not None:
             title += f' | D={dimension:.3f}'
         
@@ -230,8 +256,6 @@ try:
         ax.set_xlim(x_min, x_max)
         ax.set_ylim(y_min, y_max)
         ax.grid(True, alpha=0.2)
-        if point_count > 0:
-            ax.legend(loc='upper right', fontsize=8)
         
         plt.tight_layout()
         
