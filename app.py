@@ -6,7 +6,6 @@ from matplotlib.patches import Rectangle
 # Set page config
 st.set_page_config(
     page_title="IFS Fractal Visualizer",
-    # page_icon="🌀",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -75,7 +74,7 @@ class MatrixIFS:
             point = self.matrices[idx] @ point + self.translations[idx]
             points[i] = point
         
-        # Store transformation indices for tracking
+        #Store transformation indices for tracking
         self.last_indices = indices
         return points
     
@@ -97,12 +96,12 @@ class MatrixIFS:
         if r_avg < 1e-10:  # Avoid division by zero
             return None
         
-        # Dimension formula: ln(n) / ln(1/r)
+        #Dimension formula: ln(n) / ln(1/r)
         dimension = np.log(self.n_transforms) / np.log(1 / r_avg)
         return dimension
 
 
-# Title
+# Page Title
 st.markdown('<div class="main-title"> IFS Fractal Visualizer</div>', unsafe_allow_html=True)
 st.write("Explore custom fractals by adjusting transformation parameters. Each point is colored by the transformation that created it.")
 
@@ -113,9 +112,9 @@ st.sidebar.markdown('<div class="section-header">Fractal Parameters</div>', unsa
 n_transforms = st.sidebar.slider(
     "Number of Transformations",
     min_value=1,
-    max_value=30,
+    max_value=50,
     value=3,
-    help="Number of transformation functions (1-8)"
+    help="Number of transformation functions (1-50)"
 )
 
 # Number of points
@@ -149,12 +148,12 @@ for i in range(n_transforms):
         defaults = {'a': 0.5, 'b': 0.0, 'c': 0.0, 'd': 0.5, 'e': 0.0, 'f': 0.0}
     
     transform_params[i] = {
-        'a': cols[0].number_input(f'a{i+1}', value=defaults['a'], min_value=0.0, max_value=1.0, step=0.01, label_visibility="collapsed"),
-        'b': cols[1].number_input(f'b{i+1}', value=defaults['b'], min_value=0.0, max_value=1.0, step=0.01, label_visibility="collapsed"),
-        'c': cols[2].number_input(f'c{i+1}', value=defaults['c'], min_value=0.0, max_value=1.0, step=0.01, label_visibility="collapsed"),
-        'd': cols[3].number_input(f'd{i+1}', value=defaults['d'], min_value=0.0, max_value=1.0, step=0.01, label_visibility="collapsed"),
-        'e': cols[4].number_input(f'e{i+1}', value=defaults['e'], min_value=0.0, max_value=1.0, step=0.01, label_visibility="collapsed"),
-        'f': cols[5].number_input(f'f{i+1}', value=defaults['f'], min_value=0.0, max_value=1.0, step=0.01, label_visibility="collapsed"),
+        'a': cols[0].number_input(f'a{i+1}', value=defaults['a'], min_value=-1.0, max_value=1.0, step=0.01, label_visibility="collapsed"),
+        'b': cols[1].number_input(f'b{i+1}', value=defaults['b'], min_value=-1.0, max_value=1.0, step=0.01, label_visibility="collapsed"),
+        'c': cols[2].number_input(f'c{i+1}', value=defaults['c'], min_value=-1.0, max_value=1.0, step=0.01, label_visibility="collapsed"),
+        'd': cols[3].number_input(f'd{i+1}', value=defaults['d'], min_value=-1.0, max_value=1.0, step=0.01, label_visibility="collapsed"),
+        'e': cols[4].number_input(f'e{i+1}', value=defaults['e'], min_value=-1.0, max_value=1.0, step=0.01, label_visibility="collapsed"),
+        'f': cols[5].number_input(f'f{i+1}', value=defaults['f'], min_value=-1.0, max_value=1.0, step=0.01, label_visibility="collapsed"),
     }
 
 # Build matrices and translations
@@ -199,12 +198,15 @@ try:
         y_min -= y_range * padding
         y_max += y_range * padding
         
-        # Color map for transformations (30 distinct colors)
+        # Color map for transformations (50 distinct colors)
         colors = ['red', 'blue', 'green', 'purple', 'orange', 'brown', 'pink', 'gray',
                   '#FF6347', '#4169E1', '#32CD32', '#FFD700', '#FF1493', '#00CED1',
                   '#FF8C00', '#20B2AA', '#DC143C', '#6495ED', '#228B22', '#FFB6C1',
                   '#8B4513', '#00BFFF', '#8B008B', '#FF4500', '#2F4F4F', '#FF69B4',
-                  '#696969', '#ADFF2F', '#1E90FF', '#FF00FF']
+                  '#696969', '#ADFF2F', '#1E90FF', '#FF00FF', '#3CB371', '#8B0000',
+                  '#FF7F50', '#1C1C1C', '#556B2F', '#9932CC', '#FF69B4', '#F08080',
+                  '#00008B', '#008000', '#4B0082', '#F0E68C', '#00FA9A', '#90EE90',
+                  '#00FFFF', '#191970', '#FFA500', '#FFB6C1', '#FFC0CB', '#FF00FF']
         
         # Plot points colored by transformation index
         point_count = 0
