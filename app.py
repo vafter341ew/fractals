@@ -188,35 +188,47 @@ for i in range(n_transforms):
     matrices.append(matrix)
     translations.append(translation)
 
-def generate_gasket_triangles(matrices, translations, depth):
-    """Recursively generate triangles for gasket visualization using IFS"""
+def generate_gasket_deterministic(depth):
+    """Generate gasket using deterministic geometric subdivision (edge-based method)"""
     from matplotlib.patches import Polygon
     
     triangles = []
     
     # Define initial triangle (Sierpinski standard orientation)
     # Vertices at (0,0), (1,0), (0.5, sqrt(3)/2)
-    initial_vertices = np.array([
+    initial_triangle = np.array([
         [0.0, 0.0],
         [1.0, 0.0],
         [0.5, np.sqrt(3)/2]
     ])
     
-    def recurse_triangles(vertices, current_depth):
+    def subdivide(vertices, current_depth):
+        """Recursively subdivide triangle by removing middle third"""
         if current_depth == 0:
+            # Add the final triangle as a filled patch
+            triangles.append(Polygon(vertices, closed=True, 
+                                   edgecolor='black', facecolor='black', 
+                                   linewidth=0.5, alpha=0.9))
             return
         
-        # Add current triangle
-        triangles.append(Polygon(vertices, closed=True, 
-                               edgecolor='black', facecolor='black', 
-                               linewidth=0, alpha=0.9))
+        # Calculate midpoints of each edge
+        mid01 = (vertices[0] + vertices[1]) / 2
+        mid12 = (vertices[1] + vertices[2]) / 2
+        mid20 = (vertices[2] + vertices[0]) / 2
         
-        # Apply each transformation to generate smaller triangles
-        for matrix, translation in zip(matrices, translations):
-            new_vertices = np.array([matrix @ v + translation for v in vertices])
-            recurse_triangles(new_vertices, current_depth - 1)
+        # Recursively subdivide the 3 corner triangles
+        # Bottom-left triangle
+        subdivide(np.array([vertices[0], mid01, mid20]), current_depth - 1)
+        
+        # Bottom-right triangle
+        subdivide(np.array([mid01, vertices[1], mid12]), current_depth - 1)
+        
+        # Top triangle
+        subdivide(np.array([mid20, mid12, vertices[2]]), current_depth - 1)
+        
+        # Middle triangle is intentionally NOT added (removed/empty)
     
-    recurse_triangles(initial_vertices, depth)
+    subdivide(initial_triangle, depth)
     return triangles
 
 # Compute fractal
@@ -286,9 +298,9 @@ try:
             title = "Error"
             stats = {}
     
-    else:  # Gasket mode - recursive algorithm with filled triangles
-        # Generate gasket triangles using recursive IFS transformations
-        triangles = generate_gasket_triangles(matrices, translations, recursion_depth)
+    else:  # Gasket mode - deterministic geometric subdivision
+        # Generate gasket using deterministic subdivision (removes middle triangles)
+        triangles = generate_gasket_deterministic(recursion_depth)
         
         # Create visualization
         fig, ax = plt.subplots(figsize=(10, 10), dpi=100)
@@ -317,15 +329,11 @@ try:
             y_max += y_range * padding
         
         # Title
-        title = f'Gasket - Recursive Depth: {recursion_depth}, Triangles: {len(triangles)}'
+        title = f'Gasket - Deterministic Subdivision (Depth: {recursion_depth}, Triangles: {len(triangles)})'
         
-        # Estimate dimension for gasket
-        if n_transforms > 0:
-            # For gasket: dimension = log(n) / log(2) approximately
-            dimension = np.log(n_transforms) / np.log(2)
-            title += f' | D≈{dimension:.3f}'
-        else:
-            dimension = None
+        # Dimension for Sierpinski gasket
+        dimension = np.log(3) / np.log(2)
+        title += f' | D={dimension:.3f}'
         
         stats = {'gasket': len(triangles)}
     
