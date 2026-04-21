@@ -113,7 +113,7 @@ st.sidebar.markdown('<div class="section-header">Fractal Parameters</div>', unsa
 n_transforms = st.sidebar.slider(
     "Number of Transformations",
     min_value=1,
-    max_value=8,
+    max_value=30,
     value=3,
     help="Number of transformation functions (1-8)"
 )
@@ -199,8 +199,12 @@ try:
         y_min -= y_range * padding
         y_max += y_range * padding
         
-        # Color map for transformations
-        colors = ['red', 'blue', 'green', 'purple', 'orange', 'brown', 'pink', 'gray']
+        # Color map for transformations (30 distinct colors)
+        colors = ['red', 'blue', 'green', 'purple', 'orange', 'brown', 'pink', 'gray',
+                  '#FF6347', '#4169E1', '#32CD32', '#FFD700', '#FF1493', '#00CED1',
+                  '#FF8C00', '#20B2AA', '#DC143C', '#6495ED', '#228B22', '#FFB6C1',
+                  '#8B4513', '#00BFFF', '#8B008B', '#FF4500', '#2F4F4F', '#FF69B4',
+                  '#696969', '#ADFF2F', '#1E90FF', '#FF00FF']
         
         # Plot points colored by transformation index
         point_count = 0
