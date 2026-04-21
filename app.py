@@ -111,9 +111,9 @@ st.sidebar.markdown('<div class="section-header">Fractal Parameters</div>', unsa
 # Visualization mode selector
 visualization_mode = st.sidebar.radio(
     "Visualization Mode",
-    options=['Scatter (Triangle)', 'Density (Gasket)'],
+    options=['Scatter (Triangle)', 'Gasket'],
     index=0,
-    help="Scatter: Point-based chaos game | Density: Filled heat map"
+    help="Scatter: Point-based chaos game | Gasket: Recursive structure"
 )
 
 # Number of transformations
@@ -133,6 +133,15 @@ num_points = st.sidebar.slider(
     value=5000,
     step=500,
     help="Number of points to compute for the fractal"
+)
+
+# Recursion depth (for gasket mode)
+recursion_depth = st.sidebar.slider(
+    "Gasket Depth",
+    min_value=1,
+    max_value=12,
+    value=7,
+    help="Recursion depth for gasket visualization"
 )
 
 # Sierpinski defaults
@@ -179,45 +188,66 @@ for i in range(n_transforms):
     matrices.append(matrix)
     translations.append(translation)
 
+def generate_gasket_points(matrices, translations, depth):
+    """Recursively generate gasket points using IFS transformations"""
+    all_points = []
+    
+    def recurse(point, current_depth):
+        if current_depth == 0:
+            return
+        all_points.append(point.copy())
+        
+        # Apply each transformation
+        for matrix, translation in zip(matrices, translations):
+            new_point = matrix @ point + translation
+            recurse(new_point, current_depth - 1)
+    
+    # Start from origin
+    start_point = np.array([0.0, 0.0])
+    recurse(start_point, depth)
+    
+    return np.array(all_points) if all_points else np.array([[0, 0]])
+
 # Compute fractal
 try:
-    ifs = MatrixIFS(matrices, translations)
-    points = ifs.compute(num_points)
-    dimension = ifs.estimate_dimension()
-    
-    # Create visualization
-    fig, ax = plt.subplots(figsize=(10, 10), dpi=100)
-    
-    # Calculate bounds from actual points
-    x_vals = points[:, 0]
-    y_vals = points[:, 1]
-    
-    if not (np.all(np.isnan(x_vals)) or np.all(np.isnan(y_vals))):
-        x_min, x_max = np.nanmin(x_vals), np.nanmax(x_vals)
-        y_min, y_max = np.nanmin(y_vals), np.nanmax(y_vals)
+    if visualization_mode == 'Scatter (Triangle)':
+        # Chaos game - scatter mode
+        ifs = MatrixIFS(matrices, translations)
+        points = ifs.compute(num_points)
+        dimension = ifs.estimate_dimension()
         
-        # Add padding
-        x_range = x_max - x_min if x_max != x_min else 1.0
-        y_range = y_max - y_min if y_max != y_min else 1.0
-        padding = 0.1
+        # Create visualization
+        fig, ax = plt.subplots(figsize=(10, 10), dpi=100)
         
-        x_min -= x_range * padding
-        x_max += x_range * padding
-        y_min -= y_range * padding
-        y_max += y_range * padding
+        # Calculate bounds from actual points
+        x_vals = points[:, 0]
+        y_vals = points[:, 1]
         
-        # Color map for transformations (50 distinct colors)
-        colors = ['red', 'blue', 'green', 'purple', 'orange', 'brown', 'pink', 'gray',
-                  '#FF6347', '#4169E1', '#32CD32', '#FFD700', '#FF1493', '#00CED1',
-                  '#FF8C00', '#20B2AA', '#DC143C', '#6495ED', '#228B22', '#FFB6C1',
-                  '#8B4513', '#00BFFF', '#8B008B', '#FF4500', '#2F4F4F', '#FF69B4',
-                  '#696969', '#ADFF2F', '#1E90FF', '#FF00FF', '#3CB371', '#8B0000',
-                  '#FF7F50', '#1C1C1C', '#556B2F', '#9932CC', '#FF69B4', '#F08080',
-                  '#00008B', '#008000', '#4B0082', '#F0E68C', '#00FA9A', '#90EE90',
-                  '#00FFFF', '#191970', '#FFA500', '#FFB6C1', '#FFC0CB', '#FF00FF']
-        
-        if visualization_mode == 'Scatter (Triangle)':
-            # Plot points colored by transformation index (Scatter mode)
+        if not (np.all(np.isnan(x_vals)) or np.all(np.isnan(y_vals))):
+            x_min, x_max = np.nanmin(x_vals), np.nanmax(x_vals)
+            y_min, y_max = np.nanmin(y_vals), np.nanmax(y_vals)
+            
+            # Add padding
+            x_range = x_max - x_min if x_max != x_min else 1.0
+            y_range = y_max - y_min if y_max != y_min else 1.0
+            padding = 0.1
+            
+            x_min -= x_range * padding
+            x_max += x_range * padding
+            y_min -= y_range * padding
+            y_max += y_range * padding
+            
+            # Color map for transformations (50 distinct colors)
+            colors = ['red', 'blue', 'green', 'purple', 'orange', 'brown', 'pink', 'gray',
+                      '#FF6347', '#4169E1', '#32CD32', '#FFD700', '#FF1493', '#00CED1',
+                      '#FF8C00', '#20B2AA', '#DC143C', '#6495ED', '#228B22', '#FFB6C1',
+                      '#8B4513', '#00BFFF', '#8B008B', '#FF4500', '#2F4F4F', '#FF69B4',
+                      '#696969', '#ADFF2F', '#1E90FF', '#FF00FF', '#3CB371', '#8B0000',
+                      '#FF7F50', '#1C1C1C', '#556B2F', '#9932CC', '#FF69B4', '#F08080',
+                      '#00008B', '#008000', '#4B0082', '#F0E68C', '#00FA9A', '#90EE90',
+                      '#00FFFF', '#191970', '#FFA500', '#FFB6C1', '#FFC0CB', '#FF00FF']
+            
+            # Plot points colored by transformation index
             point_count = 0
             for t_idx in range(n_transforms):
                 mask = ifs.last_indices == t_idx
@@ -228,59 +258,90 @@ try:
                                   s=2, c=colors[t_idx % len(colors)], alpha=0.7, 
                                   label=f'T{t_idx+1}')
                         point_count += np.sum(valid_mask)
+            
+            # Title
+            title = f'Scatter - Custom Fractal (n={n_transforms}, {num_points} points)'
+            if dimension is not None:
+                title += f' | D={dimension:.3f}'
+            
             if point_count > 0:
                 ax.legend(loc='upper right', fontsize=8)
-        else:
-            # Create 2D histogram for density visualization (Gasket mode)
-            valid_mask = ~np.isnan(x_vals) & ~np.isnan(y_vals)
-            if np.any(valid_mask):
-                x_valid = x_vals[valid_mask]
-                y_valid = y_vals[valid_mask]
                 
-                # Create bins for histogram
-                bins = int(np.sqrt(num_points / 10))
-                bins = max(20, min(bins, 100))  # Constrain bin count
-                
-                # Plot 2D histogram with heatmap
-                h = ax.hist2d(x_valid, y_valid, bins=bins, cmap='hot')
-                plt.colorbar(h[3], ax=ax, label='Point Density')
-        
-        # Title
-        mode_label = 'Scatter' if visualization_mode == 'Scatter (Triangle)' else 'Density'
-        title = f'{mode_label} - Custom Fractal (n={n_transforms}, {num_points} points)'
-        if dimension is not None:
-            title += f' | D={dimension:.3f}'
-        
-        ax.set_title(title, fontsize=12, fontweight='bold')
-        ax.set_aspect('equal')
-        ax.set_xlim(x_min, x_max)
-        ax.set_ylim(y_min, y_max)
-        ax.grid(True, alpha=0.2)
-        
-        plt.tight_layout()
-        
-        # Display plot
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            st.pyplot(fig)
-        
-        # Display stats in sidebar
-        with col2:
-            st.markdown('<div class="section-header">Statistics</div>', unsafe_allow_html=True)
-            
             # Transformation distribution
             unique, counts = np.unique(ifs.last_indices, return_counts=True)
             stats = {int(t): int(count) for t, count in zip(unique, counts)}
+        else:
+            st.error("Invalid fractal: All points collapsed. Try adjusting transformation parameters.")
+            title = "Error"
+            stats = {}
+    
+    else:  # Gasket mode - recursive algorithm
+        # Generate gasket using recursive IFS transformations
+        gasket_points = generate_gasket_points(matrices, translations, recursion_depth)
+        
+        x_vals = gasket_points[:, 0]
+        y_vals = gasket_points[:, 1]
+        
+        # Create visualization
+        fig, ax = plt.subplots(figsize=(10, 10), dpi=100)
+        
+        # Calculate bounds
+        if len(x_vals) > 0:
+            x_min, x_max = np.min(x_vals), np.max(x_vals)
+            y_min, y_max = np.min(y_vals), np.max(y_vals)
             
+            x_range = x_max - x_min if x_max != x_min else 1.0
+            y_range = y_max - y_min if y_max != y_min else 1.0
+            padding = 0.1
+            
+            x_min -= x_range * padding
+            x_max += x_range * padding
+            y_min -= y_range * padding
+            y_max += y_range * padding
+        
+        # Plot gasket points with small black dots
+        ax.scatter(x_vals, y_vals, s=1, c='black', alpha=0.8)
+        
+        # Title
+        title = f'Gasket - Recursive Depth: {recursion_depth}, Points: {len(gasket_points)}'
+        
+        # Estimate dimension for gasket
+        if n_transforms > 0:
+            # For gasket: dimension = log(n) / log(2) approximately
+            dimension = np.log(n_transforms) / np.log(2)
+            title += f' | D≈{dimension:.3f}'
+        else:
+            dimension = None
+        
+        stats = {'gasket': len(gasket_points)}
+    
+    ax.set_title(title, fontsize=12, fontweight='bold')
+    ax.set_aspect('equal')
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(y_min, y_max)
+    ax.grid(True, alpha=0.2)
+    
+    plt.tight_layout()
+    
+    # Display plot
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.pyplot(fig)
+    
+    # Display stats in sidebar
+    with col2:
+        st.markdown('<div class="section-header">Statistics</div>', unsafe_allow_html=True)
+        
+        if visualization_mode == 'Scatter (Triangle)':
             st.write("**Transformation Distribution:**")
             for t_idx in sorted(stats.keys()):
                 pct = (stats[t_idx] / sum(stats.values())) * 100
                 st.write(f"T{t_idx+1}: {stats[t_idx]:,} ({pct:.1f}%)")
-            
-            if dimension is not None:
-                st.write(f"\n**Dimension: {dimension:.4f}**")
-    else:
-        st.error("Invalid fractal: All points collapsed. Try adjusting transformation parameters.")
+        else:
+            st.write(f"**Gasket Points:** {stats.get('gasket', 0):,}")
+        
+        if dimension is not None:
+            st.write(f"\n**Dimension: {dimension:.4f}**")
         
 except Exception as e:
     st.error(f"Error computing fractal: {e}")
