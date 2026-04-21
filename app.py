@@ -108,14 +108,6 @@ st.write("Explore custom fractals by adjusting transformation parameters. Each p
 # Sidebar for controls
 st.sidebar.markdown('<div class="section-header">Fractal Parameters</div>', unsafe_allow_html=True)
 
-# Visualization mode selector
-visualization_mode = st.sidebar.radio(
-    "Visualization Mode",
-    options=['Scatter (Triangle)', 'Gasket'],
-    index=0,
-    help="Scatter: Point-based chaos game | Gasket: Recursive structure"
-)
-
 # Number of transformations
 n_transforms = st.sidebar.slider(
     "Number of Transformations",
@@ -133,15 +125,6 @@ num_points = st.sidebar.slider(
     value=5000,
     step=500,
     help="Number of points to compute for the fractal"
-)
-
-# Recursion depth (for gasket mode)
-recursion_depth = st.sidebar.slider(
-    "Gasket Depth",
-    min_value=1,
-    max_value=12,
-    value=7,
-    help="Recursion depth for gasket visualization"
 )
 
 # Sierpinski defaults
@@ -188,154 +171,85 @@ for i in range(n_transforms):
     matrices.append(matrix)
     translations.append(translation)
 
-def generate_gasket_deterministic(depth):
-    """Generate gasket using deterministic geometric subdivision (edge-based method)"""
-    from matplotlib.patches import Polygon
+def compute_fractal():
+    """Compute and render fractal using chaos game"""
+    matrices = []
+    translations = []
+    for i in range(n_transforms):
+        matrix = np.array([
+            [transform_params[i]['a'], transform_params[i]['b']],
+            [transform_params[i]['c'], transform_params[i]['d']]
+        ])
+        translation = np.array([
+            transform_params[i]['e'],
+            transform_params[i]['f']
+        ])
+        matrices.append(matrix)
+        translations.append(translation)
     
-    triangles = []
+    # Chaos game - scatter mode
+    ifs = MatrixIFS(matrices, translations)
+    points = ifs.compute(num_points)
+    dimension = ifs.estimate_dimension()
     
-    # Define initial triangle (Sierpinski standard orientation)
-    # Vertices at (0,0), (1,0), (0.5, sqrt(3)/2)
-    initial_triangle = np.array([
-        [0.0, 0.0],
-        [1.0, 0.0],
-        [0.5, np.sqrt(3)/2]
-    ])
+    # Create visualization
+    fig, ax = plt.subplots(figsize=(10, 10), dpi=100)
     
-    def subdivide(vertices, current_depth):
-        """Recursively subdivide triangle by removing middle third"""
-        if current_depth == 0:
-            # Add the final triangle as a filled patch
-            triangles.append(Polygon(vertices, closed=True, 
-                                   edgecolor='black', facecolor='black', 
-                                   linewidth=0.5, alpha=0.9))
-            return
-        
-        # Calculate midpoints of each edge
-        mid01 = (vertices[0] + vertices[1]) / 2
-        mid12 = (vertices[1] + vertices[2]) / 2
-        mid20 = (vertices[2] + vertices[0]) / 2
-        
-        # Recursively subdivide the 3 corner triangles
-        # Bottom-left triangle
-        subdivide(np.array([vertices[0], mid01, mid20]), current_depth - 1)
-        
-        # Bottom-right triangle
-        subdivide(np.array([mid01, vertices[1], mid12]), current_depth - 1)
-        
-        # Top triangle
-        subdivide(np.array([mid20, mid12, vertices[2]]), current_depth - 1)
-        
-        # Middle triangle is intentionally NOT added (removed/empty)
+    # Calculate bounds from actual points
+    x_vals = points[:, 0]
+    y_vals = points[:, 1]
     
-    subdivide(initial_triangle, depth)
-    return triangles
-
-# Compute fractal
-try:
-    if visualization_mode == 'Scatter (Triangle)':
-        # Chaos game - scatter mode
-        ifs = MatrixIFS(matrices, translations)
-        points = ifs.compute(num_points)
-        dimension = ifs.estimate_dimension()
+    if not (np.all(np.isnan(x_vals)) or np.all(np.isnan(y_vals))):
+        x_min, x_max = np.nanmin(x_vals), np.nanmax(x_vals)
+        y_min, y_max = np.nanmin(y_vals), np.nanmax(y_vals)
         
-        # Create visualization
-        fig, ax = plt.subplots(figsize=(10, 10), dpi=100)
+        # Add padding
+        x_range = x_max - x_min if x_max != x_min else 1.0
+        y_range = y_max - y_min if y_max != y_min else 1.0
+        padding = 0.1
         
-        # Calculate bounds from actual points
-        x_vals = points[:, 0]
-        y_vals = points[:, 1]
+        x_min -= x_range * padding
+        x_max += x_range * padding
+        y_min -= y_range * padding
+        y_max += y_range * padding
         
-        if not (np.all(np.isnan(x_vals)) or np.all(np.isnan(y_vals))):
-            x_min, x_max = np.nanmin(x_vals), np.nanmax(x_vals)
-            y_min, y_max = np.nanmin(y_vals), np.nanmax(y_vals)
-            
-            # Add padding
-            x_range = x_max - x_min if x_max != x_min else 1.0
-            y_range = y_max - y_min if y_max != y_min else 1.0
-            padding = 0.1
-            
-            x_min -= x_range * padding
-            x_max += x_range * padding
-            y_min -= y_range * padding
-            y_max += y_range * padding
-            
-            # Color map for transformations (50 distinct colors)
-            colors = ['red', 'blue', 'green', 'purple', 'orange', 'brown', 'pink', 'gray',
-                      '#FF6347', '#4169E1', '#32CD32', '#FFD700', '#FF1493', '#00CED1',
-                      '#FF8C00', '#20B2AA', '#DC143C', '#6495ED', '#228B22', '#FFB6C1',
-                      '#8B4513', '#00BFFF', '#8B008B', '#FF4500', '#2F4F4F', '#FF69B4',
-                      '#696969', '#ADFF2F', '#1E90FF', '#FF00FF', '#3CB371', '#8B0000',
-                      '#FF7F50', '#1C1C1C', '#556B2F', '#9932CC', '#FF69B4', '#F08080',
-                      '#00008B', '#008000', '#4B0082', '#F0E68C', '#00FA9A', '#90EE90',
-                      '#00FFFF', '#191970', '#FFA500', '#FFB6C1', '#FFC0CB', '#FF00FF']
-            
-            # Plot points colored by transformation index
-            point_count = 0
-            for t_idx in range(n_transforms):
-                mask = ifs.last_indices == t_idx
-                if np.any(mask):
-                    valid_mask = ~np.isnan(x_vals[mask]) & ~np.isnan(y_vals[mask])
-                    if np.any(valid_mask):
-                        ax.scatter(x_vals[mask][valid_mask], y_vals[mask][valid_mask], 
-                                  s=2, c=colors[t_idx % len(colors)], alpha=0.7, 
-                                  label=f'T{t_idx+1}')
-                        point_count += np.sum(valid_mask)
-            
-            # Title
-            title = f'Scatter - Custom Fractal (n={n_transforms}, {num_points} points)'
-            if dimension is not None:
-                title += f' | D={dimension:.3f}'
-            
-            if point_count > 0:
-                ax.legend(loc='upper right', fontsize=8)
-                
-            # Transformation distribution
-            unique, counts = np.unique(ifs.last_indices, return_counts=True)
-            stats = {int(t): int(count) for t, count in zip(unique, counts)}
-        else:
-            st.error("Invalid fractal: All points collapsed. Try adjusting transformation parameters.")
-            title = "Error"
-            stats = {}
-    
-    else:  # Gasket mode - deterministic geometric subdivision
-        # Generate gasket using deterministic subdivision (removes middle triangles)
-        triangles = generate_gasket_deterministic(recursion_depth)
+        # Color map for transformations (50 distinct colors)
+        colors = ['red', 'blue', 'green', 'purple', 'orange', 'brown', 'pink', 'gray',
+                  '#FF6347', '#4169E1', '#32CD32', '#FFD700', '#FF1493', '#00CED1',
+                  '#FF8C00', '#20B2AA', '#DC143C', '#6495ED', '#228B22', '#FFB6C1',
+                  '#8B4513', '#00BFFF', '#8B008B', '#FF4500', '#2F4F4F', '#FF69B4',
+                  '#696969', '#ADFF2F', '#1E90FF', '#FF00FF', '#3CB371', '#8B0000',
+                  '#FF7F50', '#1C1C1C', '#556B2F', '#9932CC', '#FF69B4', '#F08080',
+                  '#00008B', '#008000', '#4B0082', '#F0E68C', '#00FA9A', '#90EE90',
+                  '#00FFFF', '#191970', '#FFA500', '#FFB6C1', '#FFC0CB', '#FF00FF']
         
-        # Create visualization
-        fig, ax = plt.subplots(figsize=(10, 10), dpi=100)
-        
-        # Add all triangles to the plot
-        for triangle in triangles:
-            ax.add_patch(triangle)
-        
-        # Calculate bounds from all triangle vertices
-        all_vertices = []
-        for triangle in triangles:
-            all_vertices.extend(triangle.get_xy())
-        
-        if len(all_vertices) > 0:
-            all_vertices = np.array(all_vertices)
-            x_min, x_max = np.min(all_vertices[:, 0]), np.max(all_vertices[:, 0])
-            y_min, y_max = np.min(all_vertices[:, 1]), np.max(all_vertices[:, 1])
-            
-            x_range = x_max - x_min if x_max != x_min else 1.0
-            y_range = y_max - y_min if y_max != y_min else 1.0
-            padding = 0.1
-            
-            x_min -= x_range * padding
-            x_max += x_range * padding
-            y_min -= y_range * padding
-            y_max += y_range * padding
+        # Plot points colored by transformation index
+        point_count = 0
+        for t_idx in range(n_transforms):
+            mask = ifs.last_indices == t_idx
+            if np.any(mask):
+                valid_mask = ~np.isnan(x_vals[mask]) & ~np.isnan(y_vals[mask])
+                if np.any(valid_mask):
+                    ax.scatter(x_vals[mask][valid_mask], y_vals[mask][valid_mask], 
+                              s=2, c=colors[t_idx % len(colors)], alpha=0.7, 
+                              label=f'T{t_idx+1}')
+                    point_count += np.sum(valid_mask)
         
         # Title
-        title = f'Gasket - Deterministic Subdivision (Depth: {recursion_depth}, Triangles: {len(triangles)})'
+        title = f'Scatter Plot (n={n_transforms}, {num_points} points)'
+        if dimension is not None:
+            title += f' | D={dimension:.3f}'
         
-        # Dimension for Sierpinski gasket
-        dimension = np.log(3) / np.log(2)
-        title += f' | D={dimension:.3f}'
-        
-        stats = {'gasket': len(triangles)}
+        if point_count > 0:
+            ax.legend(loc='upper right', fontsize=8)
+            
+        # Transformation distribution
+        unique, counts = np.unique(ifs.last_indices, return_counts=True)
+        stats = {int(t): int(count) for t, count in zip(unique, counts)}
+    else:
+        st.error("Invalid fractal: All points collapsed. Try adjusting transformation parameters.")
+        title = "Error"
+        stats = {}
     
     ax.set_title(title, fontsize=12, fontweight='bold')
     ax.set_aspect('equal')
@@ -344,6 +258,12 @@ try:
     ax.grid(True, alpha=0.2)
     
     plt.tight_layout()
+    
+    return fig, dimension, stats
+    
+# Compute fractal
+try:
+    fig, dimension, stats = compute_fractal()
     
     # Display plot
     col1, col2 = st.columns([3, 1])
@@ -354,13 +274,10 @@ try:
     with col2:
         st.markdown('<div class="section-header">Statistics</div>', unsafe_allow_html=True)
         
-        if visualization_mode == 'Scatter (Triangle)':
-            st.write("**Transformation Distribution:**")
-            for t_idx in sorted(stats.keys()):
-                pct = (stats[t_idx] / sum(stats.values())) * 100
-                st.write(f"T{t_idx+1}: {stats[t_idx]:,} ({pct:.1f}%)")
-        else:
-            st.write(f"**Gasket Points:** {stats.get('gasket', 0):,}")
+        st.write("**Transformation Distribution:**")
+        for t_idx in sorted(stats.keys()):
+            pct = (stats[t_idx] / sum(stats.values())) * 100
+            st.write(f"T{t_idx+1}: {stats[t_idx]:,} ({pct:.1f}%)")
         
         if dimension is not None:
             st.write(f"\n**Dimension: {dimension:.4f}**")
