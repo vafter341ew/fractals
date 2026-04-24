@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IFS Fractal Visualizer</title>
+    <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            font-size: 1.1em;
+            opacity: 0.95;
+        }
+        
+        .main-content {
+            display: flex;
+            gap: 20px;
+            padding: 20px;
+        }
+        
+        .sidebar {
+            width: 320px;
+            max-height: 100vh;
+            overflow-y: auto;
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #eee;
+        }
+        
+        .content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .section-header {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #667eea;
+            margin-top: 20px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #eee;
+        }
+        
+        .first-section {
+            margin-top: 0;
+        }
+        
+        .slider-group {
+            margin-bottom: 20px;
+        }
+        
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 0.95em;
+            font-weight: 500;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #ddd;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .transformation-block {
+            background: white;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+        }
+        
+        .transformation-title {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 0.95em;
+        }
+        
+        .param-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        
+        .param-input-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .param-input-group label {
+            font-size: 0.75em;
+            color: #666;
+            margin-bottom: 3px;
+            font-weight: 600;
+        }
+        
+        input[type="number"] {
+            padding: 6px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.85em;
+            width: 100%;
+        }
+        
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+        }
+        
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 1em;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+            width: 100%;
+            margin-top: 10px;
+        }
+        
+        button:hover {
+            background: #5568d3;
+        }
+        
+        button:active {
+            transform: translateY(1px);
+        }
+        
+        #plotDiv {
+            width: 100%;
+            height: 600px;
+            border-radius: 8px;
+            border: 1px solid #eee;
+        }
+        
+        .stats-panel {
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #eee;
+        }
+        
+        .stat-item {
+            margin-bottom: 12px;
+            font-size: 0.95em;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-weight: 500;
+        }
+        
+        .stat-value {
+            color: #667eea;
+            font-weight: bold;
+            margin-left: 5px;
+        }
+        
+        .info-section {
+            background: #f0f4ff;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            margin-top: 20px;
+        }
+        
+        .info-section h3 {
+            color: #667eea;
+            margin-bottom: 12px;
+        }
+        
+        .info-section p {
+            line-height: 1.6;
+            color: #555;
+            margin-bottom: 8px;
+        }
+        
+        .math {
+            font-family: "Times New Roman", Times, serif;
+            font-style: italic;
+            background: white;
+            padding: 8px 4px;
+            display: inline-block;
+            margin: 4px 0;
+        }
+        
+        .error-msg {
+            background: #fee;
+            border: 1px solid #fcc;
+            color: #c00;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        
+        .success-msg {
+            background: #efe;
+            border: 1px solid #cfc;
+            color: #060;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        
+        @media (max-width: 1024px) {
+            .main-content {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+                max-height: none;
+            }
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+        }
+        
+        .spinner {
+            border: 4px solid #eee;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .button-group button {
+            flex: 1;
+            margin-top: 0;
+        }
+
+        button.secondary {
+            background: #999;
+        }
+
+        button.secondary:hover {
+            background: #777;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>IFS Fractal Visualizer</h1>
+            <p class="subtitle">Explore custom fractals by adjusting transformation parameters. Each point is colored by the transformation that created it.</p>
+        </header>
+        
+        <div class="main-content">
+            <!-- Sidebar Controls -->
+            <div class="sidebar">
+                <div class="section-header first-section">Fractal Parameters</div>
+                
+                <!-- Number of Transformations -->
+                <div class="slider-group">
+                    <div class="slider-label">
+                        <span>Number of Transformations</span>
+                        <span id="numTransformsValue">3</span>
+                    </div>
+                    <input type="range" id="numTransforms" min="1" max="50" value="3">
+                    <small style="color: #999; display: block; margin-top: 5px;">Number of transformation functions (1-50)</small>
+                </div>
+                
+                <!-- Number of Points -->
+                <div class="slider-group">
+                    <div class="slider-label">
+                        <span>Points</span>
+                        <span id="numPointsValue">5000</span>
+                    </div>
+                    <input type="range" id="numPoints" min="500" max="50000" value="5000" step="500">
+                    <small style="color: #999; display: block; margin-top: 5px;">Number of points to compute (500-50000)</small>
+                </div>
+                
+                <!-- Transformations Editor -->
+                <div class="section-header">Transformations (a,b,c,d,e,f)</div>
+                <div id="transformationsContainer"></div>
+                
+                <!-- Buttons -->
+                <div class="button-group">
+                    <button onclick="computeFractal()">Compute Fractal</button>
+                </div>
+                <div class="button-group">
+                    <button class="secondary" onclick="loadSierpinskiTriangle()">Load Sierpinski</button>
+                    <button class="secondary" onclick="loadBarnsley()">Load Barnsley Fern</button>
+                </div>
+            </div>
+            
+            <!-- Main Content -->
+            <div class="content">
+                <div id="messageContainer"></div>
+                <div id="plotDiv" class="loading">
+                    <div class="spinner"></div>
+                    <p>Initializing...</p>
+                </div>
+                <div class="stats-panel" id="statsPanel" style="display: none;">
+                    <div class="section-header" style="margin-top: 0;">Statistics</div>
+                    <div id="statsContent"></div>
+                </div>
+                
+                <div class="info-section">
+                    <h3>How It Works</h3>
+                    <p><strong>Transformations:</strong> Each transformation is defined by an affine matrix operation:</p>
+                    <div class="math" style="display: block; text-align: center; margin: 10px 0;">
+                        [x'] = [a  b][x] + [e]<br>
+                        [y']   [c  d][y]   [f]
+                    </div>
+                    <p><strong>Hausdorff Dimension Estimation:</strong> D ≈ ln(n) / ln(1/r)</p>
+                    <p style="font-size: 0.9em; color: #666;">where <em>n</em> = number of transformations and <em>r</em> = average contraction ratio</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Color palette for transformations
+        const colors = [
+            '#FF6347', '#4169E1', '#32CD32', '#FFD700', '#FF1493', '#00CED1',
+            '#FF8C00', '#20B2AA', '#DC143C', '#6495ED', '#228B22', '#FFB6C1',
+            '#8B4513', '#00BFFF', '#8B008B', '#FF4500', '#2F4F4F', '#FF69B4',
+            '#696969', '#ADFF2F', '#1E90FF', '#FF00FF', '#3CB371', '#8B0000',
+            '#FF7F50', '#1C1C1C', '#556B2F', '#9932CC', '#F08080', '#00008B',
+            '#008000', '#4B0082', '#F0E68C', '#00FA9A', '#90EE90', '#00FFFF',
+            '#191970', '#FFA500', '#FFB6C1', '#FFC0CB', '#FF00FF', '#87CEEB',
+            '#A52A2A', '#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF'
+        ];
+
+        // Sierpinski Triangle defaults
+        const sierpinskiDefaults = [
+            {a: 0.5, b: 0.0, c: 0.0, d: 0.5, e: 0.0, f: 0.0},
+            {a: 0.5, b: 0.0, c: 0.0, d: 0.5, e: 0.5, f: 0.0},
+            {a: 0.5, b: 0.0, c: 0.0, d: 0.5, e: 0.25, f: 0.432}
+        ];
+
+        // Barnsley Fern defaults
+        const barnsleyDefaults = [
+            {a: 0.0, b: 0.0, c: 0.0, d: 0.16, e: 0.0, f: 0.0},
+            {a: 0.85, b: 0.04, c: -0.04, d: 0.85, e: 0.0, f: 1.6},
+            {a: 0.2, b: -0.26, c: 0.23, d: 0.22, e: 0.0, f: 1.6},
+            {a: -0.15, b: 0.28, c: 0.26, d: 0.24, e: 0.0, f: 0.44}
+        ];
+
+        // MatrixIFS class implementation
+        class MatrixIFS {
+            constructor(matrices, translations, probabilities = null) {
+                this.matrices = matrices;
+                this.translations = translations;
+                this.n_transforms = matrices.length;
+                
+                if (probabilities === null) {
+                    this.probabilities = new Array(this.n_transforms).fill(1 / this.n_transforms);
+                } else {
+                    const sum = probabilities.reduce((a, b) => a + b, 0);
+                    this.probabilities = probabilities.map(p => p / sum);
+                }
+                
+                this.last_indices = [];
+            }
+
+            matrixVectorMult(matrix, vector) {
+                return [
+                    matrix[0][0] * vector[0] + matrix[0][1] * vector[1],
+                    matrix[1][0] * vector[0] + matrix[1][1] * vector[1]
+                ];
+            }
+
+            compute(num_points) {
+                const points = [];
+                let point = [0.0, 0.0];
+                this.last_indices = [];
+                
+                // Generate random indices
+                const indices = [];
+                for (let i = 0; i < num_points; i++) {
+                    let rand = Math.random();
+                    let cumulative = 0;
+                    for (let j = 0; j < this.n_transforms; j++) {
+                        cumulative += this.probabilities[j];
+                        if (rand < cumulative) {
+                            indices.push(j);
+                            break;
+                        }
+                    }
+                }
+                
+                // Apply transformations
+                for (let i = 0; i < num_points; i++) {
+                    const idx = indices[i];
+                    const newPoint = this.matrixVectorMult(this.matrices[idx], point);
+                    point = [
+                        newPoint[0] + this.translations[idx][0],
+                        newPoint[1] + this.translations[idx][1]
+                    ];
+                    points.push([...point]);
+                    this.last_indices.push(idx);
+                }
+                
+                return points;
+            }
+
+            estimateDimension() {
+                const contractionRatios = [];
+                
+                for (let i = 0; i < this.matrices.length; i++) {
+                    const matrix = this.matrices[i];
+                    const a = matrix[0][0], b = matrix[0][1], c = matrix[1][0], d = matrix[1][1];
+                    
+                    // Compute eigenvalues using characteristic polynomial
+                    const trace = a + d;
+                    const det = a * d - b * c;
+                    const discriminant = trace * trace - 4 * det;
+                    
+                    if (discriminant >= 0) {
+                        const lambda1 = (trace + Math.sqrt(discriminant)) / 2;
+                        const lambda2 = (trace - Math.sqrt(discriminant)) / 2;
+                        const avgContraction = (Math.abs(lambda1) + Math.abs(lambda2)) / 2;
+                        contractionRatios.push(avgContraction);
+                    }
+                }
+                
+                if (contractionRatios.length === 0) return null;
+                
+                const r_avg = contractionRatios.reduce((a, b) => a + b) / contractionRatios.length;
+                
+                if (r_avg < 1e-10) return null;
+                
+                const dimension = Math.log(this.n_transforms) / Math.log(1 / r_avg);
+                return dimension;
+            }
+        }
+
+        // Get current transformation parameters
+        function getTransformationParams() {
+            const n = parseInt(document.getElementById('numTransforms').value);
+            const params = [];
+            
+            for (let i = 0; i < n; i++) {
+                params.push({
+                    a: parseFloat(document.getElementById(`a${i}`).value),
+                    b: parseFloat(document.getElementById(`b${i}`).value),
+                    c: parseFloat(document.getElementById(`c${i}`).value),
+                    d: parseFloat(document.getElementById(`d${i}`).value),
+                    e: parseFloat(document.getElementById(`e${i}`).value),
+                    f: parseFloat(document.getElementById(`f${i}`).value)
+                });
+            }
+            
+            return params;
+        }
+
+        // Compute and display fractal
+        async function computeFractal() {
+            try {
+                const plotDiv = document.getElementById('plotDiv');
+                const messageDiv = document.getElementById('messageContainer');
+                messageDiv.innerHTML = '';
+                
+                plotDiv.innerHTML = '<div class="spinner"></div><p style="text-align: center; color: #667eea;">Computing fractal...</p>';
+                
+                // Simulate async computation
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                const n_transforms = parseInt(document.getElementById('numTransforms').value);
+                const num_points = parseInt(document.getElementById('numPoints').value);
+                const params = getTransformationParams();
+                
+                // Build matrices and translations
+                const matrices = [];
+                const translations = [];
+                
+                for (let i = 0; i < n_transforms; i++) {
+                    matrices.push([
+                        [params[i].a, params[i].b],
+                        [params[i].c, params[i].d]
+                    ]);
+                    translations.push([params[i].e, params[i].f]);
+                }
+                
+                // Compute fractal
+                const ifs = new MatrixIFS(matrices, translations);
+                const points = ifs.compute(num_points);
+                const dimension = ifs.estimateDimension();
+                
+                // Prepare data for Plotly
+                const traces = [];
+                
+                for (let t_idx = 0; t_idx < n_transforms; t_idx++) {
+                    const x_vals = [];
+                    const y_vals = [];
+                    
+                    for (let i = 0; i < points.length; i++) {
+                        if (ifs.last_indices[i] === t_idx) {
+                            x_vals.push(points[i][0]);
+                            y_vals.push(points[i][1]);
+                        }
+                    }
+                    
+                    if (x_vals.length > 0) {
+                        traces.push({
+                            x: x_vals,
+                            y: y_vals,
+                            mode: 'markers',
+                            type: 'scatter',
+                            name: `T${t_idx + 1}`,
+                            marker: {
+                                color: colors[t_idx % colors.length],
+                                size: 3,
+                                opacity: 0.7
+                            }
+                        });
+                    }
+                }
+                
+                // Calculate bounds
+                let x_min = Infinity, x_max = -Infinity, y_min = Infinity, y_max = -Infinity;
+                
+                for (let i = 0; i < points.length; i++) {
+                    x_min = Math.min(x_min, points[i][0]);
+                    x_max = Math.max(x_max, points[i][0]);
+                    y_min = Math.min(y_min, points[i][1]);
+                    y_max = Math.max(y_max, points[i][1]);
+                }
+                
+                // Add padding
+                const x_range = x_max - x_min > 0 ? x_max - x_min : 1.0;
+                const y_range = y_max - y_min > 0 ? y_max - y_min : 1.0;
+                const padding = 0.1;
+                
+                x_min -= x_range * padding;
+                x_max += x_range * padding;
+                y_min -= y_range * padding;
+                y_max += y_range * padding;
+                
+                // Plot title
+                let title = `Scatter Plot (n=${n_transforms}, ${num_points} points)`;
+                if (dimension !== null) {
+                    title += ` | D=${dimension.toFixed(3)}`;
+                }
+                
+                const layout = {
+                    title: title,
+                    xaxis: {
+                        scaleanchor: "y",
+                        scaleratio: 1,
+                        range: [x_min, x_max]
+                    },
+                    yaxis: {
+                        scaleanchor: "x",
+                        scaleratio: 1,
+                        range: [y_min, y_max]
+                    },
+                    hovermode: 'closest',
+                    showlegend: true,
+                    width: null,
+                    height: 600,
+                    margin: { l: 50, r: 50, t: 80, b: 50 }
+                };
+                
+                Plotly.newPlot('plotDiv', traces, layout, { responsive: true });
+                
+                // Update statistics
+                const statsPanel = document.getElementById('statsPanel');
+                const statsContent = document.getElementById('statsContent');
+                
+                let statsHTML = '<div class="stat-item"><strong>Transformation Distribution:</strong></div>';
+                
+                const stats = {};
+                for (let i = 0; i < ifs.last_indices.length; i++) {
+                    const idx = ifs.last_indices[i];
+                    stats[idx] = (stats[idx] || 0) + 1;
+                }
+                
+                for (let t_idx = 0; t_idx < n_transforms; t_idx++) {
+                    const count = stats[t_idx] || 0;
+                    const pct = count > 0 ? ((count / num_points) * 100).toFixed(1) : 0;
+                    statsHTML += `<div class="stat-item">T${t_idx + 1}: <span class="stat-value">${count.toLocaleString()} (${pct}%)</span></div>`;
+                }
+                
+                if (dimension !== null) {
+                    statsHTML += `<div class="stat-item" style="margin-top: 15px; border-top: 1px solid #ddd; padding-top: 15px;"><strong>Dimension: <span class="stat-value">${dimension.toFixed(4)}</span></strong></div>`;
+                }
+                
+                statsContent.innerHTML = statsHTML;
+                statsPanel.style.display = 'block';
+                
+            } catch (e) {
+                const messageDiv = document.getElementById('messageContainer');
+                messageDiv.innerHTML = `<div class="error-msg"><strong>Error:</strong> ${e.message}</div>`;
+                console.error(e);
+            }
+        }
+
+        // Load Sierpinski Triangle
+        function loadSierpinskiTriangle() {
+            document.getElementById('numTransforms').value = 3;
+            updateTransformationsUI();
+            
+            for (let i = 0; i < 3; i++) {
+                const defaults = sierpinskiDefaults[i];
+                document.getElementById(`a${i}`).value = defaults.a;
+                document.getElementById(`b${i}`).value = defaults.b;
+                document.getElementById(`c${i}`).value = defaults.c;
+                document.getElementById(`d${i}`).value = defaults.d;
+                document.getElementById(`e${i}`).value = defaults.e;
+                document.getElementById(`f${i}`).value = defaults.f;
+            }
+            
+            computeFractal();
+        }
+
+        // Load Barnsley Fern
+        function loadBarnsley() {
+            document.getElementById('numTransforms').value = 4;
+            updateTransformationsUI();
+            
+            for (let i = 0; i < 4; i++) {
+                const defaults = barnsleyDefaults[i];
+                document.getElementById(`a${i}`).value = defaults.a;
+                document.getElementById(`b${i}`).value = defaults.b;
+                document.getElementById(`c${i}`).value = defaults.c;
+                document.getElementById(`d${i}`).value = defaults.d;
+                document.getElementById(`e${i}`).value = defaults.e;
+                document.getElementById(`f${i}`).value = defaults.f;
+            }
+            
+            computeFractal();
+        }
+
+        // Update transformations UI based on number selected
+        function updateTransformationsUI() {
+            const n = parseInt(document.getElementById('numTransforms').value);
+            const container = document.getElementById('transformationsContainer');
+            container.innerHTML = '';
+            
+            for (let i = 0; i < n; i++) {
+                const defaults = i < sierpinskiDefaults.length ? sierpinskiDefaults[i] : {a: 0.5, b: 0, c: 0, d: 0.5, e: 0, f: 0};
+                
+                const block = document.createElement('div');
+                block.className = 'transformation-block';
+                block.innerHTML = `
+                    <div class="transformation-title">T${i + 1}</div>
+                    <div class="param-grid">
+                        <div class="param-input-group">
+                            <label>a</label>
+                            <input type="number" id="a${i}" value="${defaults.a}" min="-1" max="1" step="0.01">
+                        </div>
+                        <div class="param-input-group">
+                            <label>b</label>
+                            <input type="number" id="b${i}" value="${defaults.b}" min="-1" max="1" step="0.01">
+                        </div>
+                        <div class="param-input-group">
+                            <label>c</label>
+                            <input type="number" id="c${i}" value="${defaults.c}" min="-1" max="1" step="0.01">
+                        </div>
+                        <div class="param-input-group">
+                            <label>d</label>
+                            <input type="number" id="d${i}" value="${defaults.d}" min="-1" max="1" step="0.01">
+                        </div>
+                        <div class="param-input-group">
+                            <label>e</label>
+                            <input type="number" id="e${i}" value="${defaults.e}" min="-1" max="1" step="0.01">
+                        </div>
+                        <div class="param-input-group">
+                            <label>f</label>
+                            <input type="number" id="f${i}" value="${defaults.f}" min="-1" max="1" step="0.01">
+                        </div>
+                    </div>
+                `;
+                container.appendChild(block);
+            }
+        }
+
+        // Event listeners
+        document.getElementById('numTransforms').addEventListener('change', function() {
+            document.getElementById('numTransformsValue').textContent = this.value;
+            updateTransformationsUI();
+        });
+
+        document.getElementById('numPoints').addEventListener('change', function() {
+            document.getElementById('numPointsValue').textContent = this.value;
+        });
+
+        // Initialize UI
+        document.addEventListener('DOMContentLoaded', function() {
+            updateTransformationsUI();
+            computeFractal();
+        });
+    </script>
+</body>
+</html>
