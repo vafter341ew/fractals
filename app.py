@@ -117,6 +117,7 @@ n_transforms = st.sidebar.slider(
     help="Number of transformation functions (1-50)"
 )
 
+
 # Number of points
 num_points = st.sidebar.slider(
     "Points",
@@ -126,6 +127,27 @@ num_points = st.sidebar.slider(
     step=500,
     help="Number of points to compute for the fractal"
 )
+
+# --- Randomize Button ---
+st.sidebar.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
+if 'random_params' not in st.session_state:
+    st.session_state['random_params'] = None
+
+randomize = st.sidebar.button("Randomize Transformations", help="Randomize all a, b, c, d, e, f values for each transformation (-1 to 1)")
+
+if randomize:
+    st.session_state['random_params'] = [
+        {
+            'a': float(np.random.uniform(-1, 1)),
+            'b': float(np.random.uniform(-1, 1)),
+            'c': float(np.random.uniform(-1, 1)),
+            'd': float(np.random.uniform(-1, 1)),
+            'e': float(np.random.uniform(-1, 1)),
+            'f': float(np.random.uniform(-1, 1)),
+        }
+        for _ in range(n_transforms)
+    ]
+
 
 # Sierpinski defaults
 sierpinski_defaults = [
@@ -137,16 +159,18 @@ sierpinski_defaults = [
 # Build transformation parameters
 st.sidebar.markdown('<div class="section-header">Transformations (T#: a,b,c,d,e,f)</div>', unsafe_allow_html=True)
 
+
 transform_params = {}
 for i in range(n_transforms):
     st.sidebar.write(f"**T{i+1}**")
     cols = st.sidebar.columns(6)
-    
-    if i < len(sierpinski_defaults):
+    # Use random values if randomize was pressed, else use defaults
+    if st.session_state.get('random_params') is not None and i < len(st.session_state['random_params']):
+        defaults = st.session_state['random_params'][i]
+    elif i < len(sierpinski_defaults):
         defaults = sierpinski_defaults[i]
     else:
         defaults = {'a': 0.5, 'b': 0.0, 'c': 0.0, 'd': 0.5, 'e': 0.0, 'f': 0.0}
-    
     transform_params[i] = {
         'a': cols[0].number_input(f'a{i+1}', value=defaults['a'], min_value=-1.0, max_value=1.0, step=0.01, label_visibility="collapsed"),
         'b': cols[1].number_input(f'b{i+1}', value=defaults['b'], min_value=-1.0, max_value=1.0, step=0.01, label_visibility="collapsed"),
@@ -155,6 +179,10 @@ for i in range(n_transforms):
         'e': cols[4].number_input(f'e{i+1}', value=defaults['e'], min_value=-1.0, max_value=1.0, step=0.01, label_visibility="collapsed"),
         'f': cols[5].number_input(f'f{i+1}', value=defaults['f'], min_value=-1.0, max_value=1.0, step=0.01, label_visibility="collapsed"),
     }
+
+# Clear random_params after use so next UI change doesn't keep randomizing
+if st.session_state.get('random_params') is not None and not randomize:
+    st.session_state['random_params'] = None
 
 # Build matrices and translations
 matrices = []
