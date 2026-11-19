@@ -15,3 +15,5 @@ Features include:
 - Live transformation distribution statistics
 - PNG export
 - JSON configuration copying
+- Paste configurations from JSON
+- Mouse-wheel zoom and drag-to-pan controls

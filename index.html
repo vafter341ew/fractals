@@ -249,7 +249,10 @@
       height: 100%;
       display: block;
       background: #fff;
+      cursor: grab;
+      touch-action: none;
     }
+    canvas.dragging { cursor: grabbing; }
     .canvas-status {
       position: absolute;
       left: 12px;
@@ -342,7 +345,6 @@
     <aside class="sidebar">
       <div class="brand">
         <div class="brand-title">IFS <span>Fractal Studio</span></div>
-        <button class="icon-button" id="addTransformTop" title="Add transformation" aria-label="Add transformation">+</button>
       </div>
       <div class="controls">
         <div class="control-row">
@@ -439,6 +441,10 @@
     let transforms = cloneTransforms(presets.sierpinski);
     let renderTimer = null;
     let toastTimer = null;
+    let viewZoom = 1;
+    let viewPanX = 0;
+    let viewPanY = 0;
+    let viewCache = null;
 
     const canvas = document.getElementById("fractalCanvas");
     const ctx = canvas.getContext("2d");
@@ -582,6 +588,33 @@
       return Math.log(transforms.length) / Math.log(1 / averageRadius);
     }
 
+    function redrawFractal() {
+      if (!viewCache) return;
+      const {plotPoints, rectWidth, rectHeight, scale, centerX, centerY} = viewCache;
+      const viewScale = scale * viewZoom;
+      ctx.setTransform(Math.min(window.devicePixelRatio || 1, 2), 0, 0, Math.min(window.devicePixelRatio || 1, 2), 0, 0);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, rectWidth, rectHeight);
+
+      for (const point of plotPoints) {
+        if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) continue;
+        const px = rectWidth / 2 + viewPanX + (point.x - centerX) * viewScale;
+        const py = rectHeight / 2 + viewPanY - (point.y - centerY) * viewScale;
+        ctx.fillStyle = palette[point.transform % palette.length];
+        ctx.globalAlpha = 0.72;
+        ctx.fillRect(px, py, 1.25, 1.25);
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function resetView() {
+      viewZoom = 1;
+      viewPanX = 0;
+      viewPanY = 0;
+      redrawFractal();
+      showToast("View reset.");
+    }
+
     function renderFractal() {
       if (probabilitySum() === 0) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -649,28 +682,14 @@
       const scale = Math.min(width / (maxX - minX), height / (maxY - minY));
       const centerX = (minX + maxX) / 2;
       const centerY = (minY + maxY) / 2;
-
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, rect.width, rect.height);
-      ctx.clearRect(0, 0, rect.width, rect.height);
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, rect.width, rect.height);
-
-      for (const point of plotPoints) {
-        if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) continue;
-        const px = rect.width / 2 + (point.x - centerX) * scale;
-        const py = rect.height / 2 - (point.y - centerY) * scale;
-        ctx.fillStyle = palette[point.transform % palette.length];
-        ctx.globalAlpha = 0.72;
-        ctx.fillRect(px, py, 1.25, 1.25);
-      }
-      ctx.globalAlpha = 1;
+      viewCache = {plotPoints, rectWidth: rect.width, rectHeight: rect.height, scale, centerX, centerY};
+      redrawFractal();
 
       const dim = estimateSpectralDimension();
       document.getElementById("pointCount").textContent = count.toLocaleString();
       document.getElementById("dimension").textContent = dim === null ? "—" : dim.toFixed(4);
       document.getElementById("canvasStatus").textContent =
-        `${count.toLocaleString()} points · seed ${Number.isFinite(seed) ? seed : 311}`;
+        `${count.toLocaleString()} points · seed ${Number.isFinite(seed) ? seed : 311} · scroll to zoom · drag to pan`;
 
       const distribution = document.getElementById("distribution");
       distribution.innerHTML = "";
@@ -779,12 +798,8 @@
     }
 
     document.getElementById("addTransform").addEventListener("click", addTransformation);
-    document.getElementById("addTransformTop").addEventListener("click", addTransformation);
     document.getElementById("randomize").addEventListener("click", randomizeTransformations);
-    document.getElementById("resetView").addEventListener("click", () => {
-      scheduleRender();
-      showToast("View reset.");
-    });
+    document.getElementById("resetView").addEventListener("click", resetView);
     document.getElementById("preset").addEventListener("change", event => loadPreset(event.target.value));
     document.getElementById("points").addEventListener("input", event => {
       document.getElementById("pointsValue").textContent = Number(event.target.value).toLocaleString();
@@ -801,7 +816,70 @@
       showToast("PNG export started.");
     });
 
+    canvas.addEventListener("wheel", event => {
+      if (!viewCache) return;
+      event.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = event.clientX - rect.left;
+      const mouseY = event.clientY - rect.top;
+      const beforeZoom = viewZoom;
+      const zoomFactor = event.deltaY < 0 ? 1.12 : 1 / 1.12;
+      viewZoom = Math.max(0.5, Math.min(25, viewZoom * zoomFactor));
+      const ratio = viewZoom / beforeZoom;
+
+      const dx = mouseX - rect.width / 2 - viewPanX;
+      const dy = mouseY - rect.height / 2 - viewPanY;
+      viewPanX -= dx * (1 - ratio);
+      viewPanY -= dy * (1 - ratio);
+      redrawFractal();
+    }, {passive: false});
+
+    let dragging = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+    let dragPanX = 0;
+    let dragPanY = 0;
+    canvas.addEventListener("pointerdown", event => {
+      dragging = true;
+      dragStartX = event.clientX;
+      dragStartY = event.clientY;
+      dragPanX = viewPanX;
+      dragPanY = viewPanY;
+      canvas.classList.add("dragging");
+      canvas.setPointerCapture(event.pointerId);
+    });
+    canvas.addEventListener("pointermove", event => {
+      if (!dragging) return;
+      viewPanX = dragPanX + event.clientX - dragStartX;
+      viewPanY = dragPanY + event.clientY - dragStartY;
+      redrawFractal();
+    });
+    canvas.addEventListener("pointerup", event => {
+      dragging = false;
+      canvas.classList.remove("dragging");
+      canvas.releasePointerCapture(event.pointerId);
+    });
+    canvas.addEventListener("pointercancel", () => {
+      dragging = false;
+      canvas.classList.remove("dragging");
+    });
+    canvas.addEventListener("dblclick", event => {
+      if (!viewCache) return;
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = event.clientX - rect.left;
+      const mouseY = event.clientY - rect.top;
+      const beforeZoom = viewZoom;
+      viewZoom = Math.min(25, viewZoom * 1.5);
+      const ratio = viewZoom / beforeZoom;
+      const dx = mouseX - rect.width / 2 - viewPanX;
+      const dy = mouseY - rect.height / 2 - viewPanY;
+      viewPanX -= dx * (1 - ratio);
+      viewPanY -= dy * (1 - ratio);
+      redrawFractal();
+    });
+
     window.addEventListener("resize", () => scheduleRender());
+    document.getElementById("seed").value = Math.floor(Math.random() * 1000);
     renderCards();
     requestAnimationFrame(() => renderFractal());
   </script>
