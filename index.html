@@ -30,7 +30,7 @@
     .app {
       min-height: 100vh;
       display: grid;
-      grid-template-columns: 360px minmax(0, 1fr);
+      grid-template-columns: var(--sidebar-width, 360px) 7px minmax(0, 1fr);
     }
     .sidebar {
       height: 100vh;
@@ -40,6 +40,18 @@
       background: var(--paper);
       border-right: 1px solid var(--line);
     }
+    .sidebar-resizer {
+      height: 100vh;
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      cursor: col-resize;
+      background: #eef0f3;
+      border-right: 1px solid #dde0e5;
+      touch-action: none;
+    }
+    .sidebar-resizer:hover,
+    .sidebar-resizer.dragging { background: #dfe3ff; }
     .brand {
       display: flex;
       align-items: center;
@@ -156,19 +168,19 @@
     .transform-body { padding: 10px 12px 12px; }
     .coefficient-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 6px;
     }
     .coefficient { display: grid; gap: 4px; }
     .coefficient label { color: var(--muted); font-size: 11px; font-weight: 800; }
     .coefficient input {
       min-width: 0;
       height: 36px;
-      padding: 0 7px;
+      padding: 0 5px;
       border: 1px solid var(--line);
       border-radius: 7px;
       background: #fafafa;
-      font-size: 12px;
+      font-size: 11px;
       font-variant-numeric: tabular-nums;
     }
     .probability-row {
@@ -233,6 +245,9 @@
       padding: 14px;
       background: var(--canvas);
     }
+    .stage.stats-collapsed {
+      grid-template-columns: minmax(0, 1fr) 44px;
+    }
     .canvas-panel, .stats-panel {
       min-height: 0;
       border: 1px solid var(--line);
@@ -270,11 +285,44 @@
       pointer-events: none;
     }
     .stats-panel { padding: 16px; overflow-y: auto; }
-    .stats-panel h2 {
-      margin: 0 0 14px;
+    .stats-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .stats-header h2 {
+      margin: 0;
       font-size: 13px;
       text-transform: uppercase;
       letter-spacing: 0.08em;
+    }
+    .collapse-button {
+      width: 28px;
+      height: 28px;
+      flex: 0 0 28px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: white;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1;
+    }
+    .collapse-button:hover { background: #f7f8fa; }
+    .stats-collapsed .stats-panel {
+      padding: 8px;
+      overflow: hidden;
+    }
+    .stats-collapsed .stats-header {
+      margin: 0;
+      justify-content: center;
+    }
+    .stats-collapsed .stats-header h2,
+    .stats-collapsed .stats-panel > .stat-block {
+      display: none;
     }
     .stat-block { margin-bottom: 16px; }
     .stat-label {
@@ -320,11 +368,12 @@
     }
     .toast.show { transform: translateY(0); opacity: 1; }
     @media (max-width: 980px) {
-      .app { grid-template-columns: 310px minmax(0, 1fr); }
+      .app { grid-template-columns: var(--sidebar-width, 310px) 7px minmax(0, 1fr); }
       .stage { grid-template-columns: 1fr 170px; }
     }
     @media (max-width: 760px) {
       .app { display: block; }
+      .sidebar-resizer { display: none; }
       .sidebar {
         height: auto;
         position: relative;
@@ -336,7 +385,9 @@
       .topbar h1 { font-size: 16px; }
       .top-actions .button { padding: 0 9px; }
       .stage { grid-template-columns: 1fr; grid-template-rows: 520px auto; }
+      .stage.stats-collapsed { grid-template-columns: 1fr; grid-template-rows: 520px 44px; }
       .stats-panel { min-height: 180px; }
+      .coefficient-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
   </style>
 </head>
@@ -379,6 +430,7 @@
         <div id="transformations"></div>
       </div>
     </aside>
+    <div class="sidebar-resizer" id="sidebarResizer" role="separator" aria-orientation="vertical" aria-label="Resize transformation panel"></div>
 
     <section class="workspace">
       <header class="topbar">
@@ -395,7 +447,10 @@
           <div class="canvas-status" id="canvasStatus">Preparing render...</div>
         </div>
         <aside class="stats-panel">
-          <h2>Statistics</h2>
+          <div class="stats-header">
+            <h2>Statistics</h2>
+            <button class="collapse-button" id="collapseStats" type="button" title="Collapse statistics" aria-label="Collapse statistics" aria-expanded="true">»</button>
+          </div>
           <div class="stat-block">
             <span class="stat-label">Points rendered</span>
             <span class="stat-value" id="pointCount">—</span>
@@ -877,6 +932,50 @@
       viewPanY -= dy * (1 - ratio);
       redrawFractal();
     });
+
+    const sidebarResizer = document.getElementById("sidebarResizer");
+    let resizingSidebar = false;
+    sidebarResizer.addEventListener("pointerdown", event => {
+      resizingSidebar = true;
+      sidebarResizer.classList.add("dragging");
+      sidebarResizer.setPointerCapture(event.pointerId);
+      document.body.style.userSelect = "none";
+    });
+    sidebarResizer.addEventListener("pointermove", event => {
+      if (!resizingSidebar) return;
+      const width = Math.max(300, Math.min(620, event.clientX));
+      document.documentElement.style.setProperty("--sidebar-width", `${width}px`);
+      scheduleRender();
+    });
+    sidebarResizer.addEventListener("pointerup", event => {
+      resizingSidebar = false;
+      sidebarResizer.classList.remove("dragging");
+      sidebarResizer.releasePointerCapture(event.pointerId);
+      document.body.style.userSelect = "";
+    });
+    sidebarResizer.addEventListener("pointercancel", () => {
+      resizingSidebar = false;
+      sidebarResizer.classList.remove("dragging");
+      document.body.style.userSelect = "";
+    });
+
+    const stage = document.querySelector(".stage");
+    const collapseStats = document.getElementById("collapseStats");
+    function setStatsCollapsed(collapsed) {
+      stage.classList.toggle("stats-collapsed", collapsed);
+      collapseStats.textContent = collapsed ? "«" : "»";
+      collapseStats.title = collapsed ? "Expand statistics" : "Collapse statistics";
+      collapseStats.setAttribute("aria-label", collapseStats.title);
+      collapseStats.setAttribute("aria-expanded", String(!collapsed));
+      try { localStorage.setItem("ifsStatsCollapsed", String(collapsed)); } catch (_) {}
+      requestAnimationFrame(() => scheduleRender());
+    }
+    collapseStats.addEventListener("click", () => {
+      setStatsCollapsed(!stage.classList.contains("stats-collapsed"));
+    });
+    try {
+      if (localStorage.getItem("ifsStatsCollapsed") === "true") setStatsCollapsed(true);
+    } catch (_) {}
 
     window.addEventListener("resize", () => scheduleRender());
     document.getElementById("seed").value = Math.floor(Math.random() * 1000);
