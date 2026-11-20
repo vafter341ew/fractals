@@ -148,11 +148,27 @@
       border-bottom: 1px solid var(--line);
     }
     .transform-dot {
-      width: 9px;
-      height: 9px;
+      width: 18px;
+      height: 18px;
+      padding: 0;
+      border: 0;
       border-radius: 50%;
+      background: transparent;
+      cursor: pointer;
       flex: 0 0 auto;
     }
+    .transform-dot::-webkit-color-swatch-wrapper { padding: 0; }
+    .transform-dot::-webkit-color-swatch { border: 0; border-radius: 50%; }
+    .transform-dot::-moz-color-swatch { border: 0; border-radius: 50%; }
+    .monochrome-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 16px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .monochrome-row input { width: 16px; height: 16px; accent-color: var(--ink); }
     .transform-name { flex: 1; font-size: 13px; font-weight: 800; }
     .remove-button {
       width: 30px;
@@ -268,22 +284,6 @@
       touch-action: none;
     }
     canvas.dragging { cursor: grabbing; }
-    .canvas-status {
-      position: absolute;
-      left: 12px;
-      bottom: 12px;
-      min-height: 30px;
-      display: flex;
-      align-items: center;
-      padding: 0 10px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: rgba(255,255,255,0.92);
-      color: var(--muted);
-      font-size: 11px;
-      font-variant-numeric: tabular-nums;
-      pointer-events: none;
-    }
     .stats-panel { padding: 16px; overflow-y: auto; }
     .stats-header {
       display: flex;
@@ -401,7 +401,7 @@
         <div class="control-row">
           <label for="preset">Preset</label>
           <select id="preset">
-            <option value="sierpinski">Sierpinski</option>
+            <option value="sierpinski">Triangle</option>
             <option value="barnsley">Barnsley Fern</option>
             <option value="dragon">Dragon-like</option>
             <option value="custom">Custom</option>
@@ -410,8 +410,9 @@
         <div class="control-row">
           <label for="points">Points</label>
           <div>
-            <input type="range" id="points" min="1000" max="50000" value="12000" step="1000">
-            <div class="range-value" id="pointsValue">12,000</div>
+            <input type="range" id="points" min="1000" max="60000" value="12000" step="1000">
+            <input type="number" id="pointsValue" min="1000" max="60000" value="12000" step="1000"
+              style="height:34px;margin-top:7px;padding:0 8px;border:1px solid var(--line);border-radius:8px;text-align:right">
           </div>
         </div>
         <div class="control-row">
@@ -422,6 +423,10 @@
           <button class="button" id="randomize">Randomize</button>
           <button class="button primary" id="resetView">Reset view</button>
         </div>
+        <label class="monochrome-row" for="monochrome">
+          <input type="checkbox" id="monochrome">
+          <span>Monochrome</span>
+        </label>
         <div class="warning" id="probabilityWarning" role="alert">All probabilities are zero. Give at least one transformation a positive weight.</div>
         <div class="section-heading">
           <h2>Transformations</h2>
@@ -444,7 +449,6 @@
       <div class="stage">
         <div class="canvas-panel">
           <canvas id="fractalCanvas" aria-label="Generated iterated function system fractal"></canvas>
-          <div class="canvas-status" id="canvasStatus">Preparing render...</div>
         </div>
         <aside class="stats-panel">
           <div class="stats-header">
@@ -477,9 +481,9 @@
 
     const presets = {
       sierpinski: [
-        {a:.5,b:0,c:0,d:.5,e:0,f:0,p:33.333},
-        {a:.5,b:0,c:0,d:.5,e:.5,f:0,p:33.333},
-        {a:.5,b:0,c:0,d:.5,e:.25,f:.432,p:33.334}
+        {a:.5,b:0,c:0,d:.5,e:0,f:0,p:1},
+        {a:.5,b:0,c:0,d:.5,e:.5,f:0,p:1},
+        {a:.5,b:0,c:0,d:.5,e:.25,f:.432,p:1}
       ],
       barnsley: [
         {a:0,b:0,c:0,d:.16,e:0,f:0,p:1},
@@ -500,13 +504,21 @@
     let viewPanX = 0;
     let viewPanY = 0;
     let viewCache = null;
+    let monochrome = false;
 
     const canvas = document.getElementById("fractalCanvas");
     const ctx = canvas.getContext("2d");
     const container = document.getElementById("transformations");
 
     function cloneTransforms(items) {
-      return items.map(t => ({...t}));
+      return items.map((t, i) => ({
+        ...t,
+        color: t.color || palette[i % palette.length]
+      }));
+    }
+
+    function getTransformColor(index) {
+      return monochrome ? "#000000" : (transforms[index].color || palette[index % palette.length]);
     }
 
     function mulberry32(seed) {
@@ -537,7 +549,7 @@
         card.className = "transform-card";
         card.innerHTML = `
           <div class="transform-card-header">
-            <span class="transform-dot" style="background:${palette[i % palette.length]}"></span>
+            <input class="transform-dot" data-color-index="${i}" type="color" value="${getTransformColor(i)}" title="Choose transformation ${i + 1} color" aria-label="Choose transformation ${i + 1} color" ${monochrome ? "disabled" : ""}>
             <span class="transform-name">Transformation ${i + 1}</span>
             <button class="remove-button" data-remove="${i}" title="Remove transformation" aria-label="Remove transformation ${i + 1}" ${transforms.length === 1 ? "disabled" : ""}>−</button>
           </div>
@@ -581,6 +593,15 @@
       container.querySelectorAll("[data-remove]").forEach(button => {
         button.addEventListener("click", () => removeTransformation(Number(button.dataset.remove)));
       });
+      container.querySelectorAll("[data-color-index]").forEach(input => {
+        input.addEventListener("input", () => {
+          if (monochrome) return;
+          const i = Number(input.dataset.colorIndex);
+          transforms[i].color = input.value;
+          redrawFractal();
+          updateDistributionColors();
+        });
+      });
       updateProbabilityDisplays();
     }
 
@@ -601,9 +622,10 @@
         showToast("Maximum of 50 transformations reached.");
         return;
       }
-      const count = transforms.length;
-      const weight = count ? Math.max(1, 100 / (count + 1)) : 100;
-      transforms.push({a:.5,b:0,c:0,d:.5,e:0,f:0,p:weight});
+      transforms.push({
+        a:.5,b:0,c:0,d:.5,e:0,f:0,p:1,
+        color: palette[transforms.length % palette.length]
+      });
       document.getElementById("preset").value = "custom";
       renderCards();
       scheduleRender();
@@ -619,7 +641,6 @@
 
     function scheduleRender() {
       clearTimeout(renderTimer);
-      document.getElementById("canvasStatus").textContent = "Updating...";
       renderTimer = setTimeout(renderFractal, 180);
     }
 
@@ -655,9 +676,12 @@
         if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) continue;
         const px = rectWidth / 2 + viewPanX + (point.x - centerX) * viewScale;
         const py = rectHeight / 2 + viewPanY - (point.y - centerY) * viewScale;
-        ctx.fillStyle = palette[point.transform % palette.length];
-        ctx.globalAlpha = 0.72;
-        ctx.fillRect(px, py, 1.25, 1.25);
+        ctx.fillStyle = getTransformColor(point.transform);
+        ctx.globalAlpha = 0.78;
+        const pointSize = Math.max(2.25, Math.min(18, 2.25 * Math.sqrt(viewZoom)));
+        ctx.beginPath();
+        ctx.arc(px, py, pointSize / 2, 0, Math.PI * 2);
+        ctx.fill();
       }
       ctx.globalAlpha = 1;
     }
@@ -670,10 +694,16 @@
       showToast("View reset.");
     }
 
+    function updateDistributionColors() {
+      document.querySelectorAll(".distribution-row").forEach((row, i) => {
+        const bar = row.querySelector(".bar-fill");
+        if (bar) bar.style.background = getTransformColor(i);
+      });
+    }
+
     function renderFractal() {
       if (probabilitySum() === 0) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        document.getElementById("canvasStatus").textContent = "Add a positive probability";
         document.getElementById("pointCount").textContent = "0";
         document.getElementById("dimension").textContent = "—";
         document.getElementById("distribution").innerHTML = "";
@@ -727,7 +757,6 @@
         }
       }
       if (!Number.isFinite(minX) || maxX === minX || maxY === minY) {
-        document.getElementById("canvasStatus").textContent = "Fractal collapsed or contains invalid values";
         return;
       }
 
@@ -743,8 +772,6 @@
       const dim = estimateSpectralDimension();
       document.getElementById("pointCount").textContent = count.toLocaleString();
       document.getElementById("dimension").textContent = dim === null ? "—" : dim.toFixed(4);
-      document.getElementById("canvasStatus").textContent =
-        `${count.toLocaleString()} points · seed ${Number.isFinite(seed) ? seed : 311} · scroll to zoom · drag to pan`;
 
       const distribution = document.getElementById("distribution");
       distribution.innerHTML = "";
@@ -756,7 +783,7 @@
               <span>T${i + 1}</span>
               <span>${used[i].toLocaleString()} · ${(pct * 100).toFixed(1)}%</span>
             </div>
-            <div class="bar"><div class="bar-fill" style="width:${pct * 100}%;background:${palette[i % palette.length]}"></div></div>
+            <div class="bar"><div class="bar-fill" style="width:${pct * 100}%;background:${getTransformColor(i)}"></div></div>
           </div>`);
       });
     }
@@ -769,14 +796,15 @@
     }
 
     function randomizeTransformations() {
-      transforms = transforms.map(() => ({
+      transforms = transforms.map((t, i) => ({
         a:+(Math.random() * 1.8 - 0.9).toFixed(3),
         b:+(Math.random() * 1.8 - 0.9).toFixed(3),
         c:+(Math.random() * 1.8 - 0.9).toFixed(3),
         d:+(Math.random() * 1.8 - 0.9).toFixed(3),
         e:+(Math.random() * 1.8 - 0.9).toFixed(3),
         f:+(Math.random() * 1.8 - 0.9).toFixed(3),
-        p:1
+        p:1,
+        color:t.color || palette[i % palette.length]
       }));
       document.getElementById("preset").value = "custom";
       renderCards();
@@ -833,15 +861,17 @@
         if (!Array.isArray(config.transforms) || !config.transforms.length) {
           throw new Error("Missing transformations");
         }
-        transforms = config.transforms.map(t => ({
+        transforms = config.transforms.map((t, i) => ({
           a:Number(t.a)||0, b:Number(t.b)||0, c:Number(t.c)||0,
           d:Number(t.d)||0, e:Number(t.e)||0, f:Number(t.f)||0,
-          p:Number(t.p) >= 0 ? Number(t.p) : 1
+          p:Number(t.p) >= 0 ? Number(t.p) : 1,
+          color:/^#[0-9a-f]{6}$/i.test(t.color || "") ? t.color : palette[i % palette.length]
         }));
         if (Number.isFinite(Number(config.seed))) document.getElementById("seed").value = config.seed;
         if (Number.isFinite(Number(config.points))) {
-          document.getElementById("points").value = config.points;
-          document.getElementById("pointsValue").textContent = Number(config.points).toLocaleString();
+          const points = Math.max(1000, Math.min(60000, Number(config.points)));
+          document.getElementById("points").value = points;
+          document.getElementById("pointsValue").value = points;
         }
         document.getElementById("preset").value = "custom";
         renderCards();
@@ -857,8 +887,19 @@
     document.getElementById("resetView").addEventListener("click", resetView);
     document.getElementById("preset").addEventListener("change", event => loadPreset(event.target.value));
     document.getElementById("points").addEventListener("input", event => {
-      document.getElementById("pointsValue").textContent = Number(event.target.value).toLocaleString();
+      document.getElementById("pointsValue").value = Number(event.target.value);
       scheduleRender();
+    });
+    document.getElementById("pointsValue").addEventListener("input", event => {
+      const value = Math.max(1000, Math.min(60000, parseInt(event.target.value, 10) || 1000));
+      document.getElementById("points").value = value;
+      scheduleRender();
+    });
+    document.getElementById("monochrome").addEventListener("change", event => {
+      monochrome = event.target.checked;
+      renderCards();
+      redrawFractal();
+      updateDistributionColors();
     });
     document.getElementById("seed").addEventListener("input", scheduleRender);
     document.getElementById("copyConfig").addEventListener("click", copyConfig);
